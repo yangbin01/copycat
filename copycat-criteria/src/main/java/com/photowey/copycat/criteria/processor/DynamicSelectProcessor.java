@@ -16,43 +16,45 @@
 package com.photowey.copycat.criteria.processor;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
-import com.baomidou.mybatisplus.core.toolkit.ObjectUtils;
 import com.photowey.copycat.criteria.annotaion.ConditionProcessor;
-import com.photowey.copycat.criteria.annotaion.In;
+import com.photowey.copycat.criteria.annotaion.DynamicSelect;
 import com.photowey.copycat.criteria.query.AbstractQuery;
-import org.springframework.util.StringUtils;
+import org.springframework.util.ObjectUtils;
 
 import java.lang.reflect.Field;
 import java.util.Collection;
 
 /**
- * {@link In} 注解处理器
+ * {@code DynamicSelectProcessor}
  *
- * @param <QUERY>  自定义查询 Query
- * @param <ENTITY> 查询想对应的实体类型
- * @author WcJun
- * @date 2019/05/12
+ * @author photowey
+ * @date 2022/11/05
+ * @since 1.0.0
  */
-@ConditionProcessor(targetAnnotation = In.class)
-public class InProcessor<QUERY extends AbstractQuery, ENTITY>
-        extends CriteriaAnnotationProcessorAdaptor<In, QUERY, QueryWrapper<ENTITY>, ENTITY> {
+@ConditionProcessor(targetAnnotation = DynamicSelect.class)
+public class DynamicSelectProcessor<QUERY extends AbstractQuery<ENTITY>, ENTITY>
+        extends CriteriaAnnotationProcessorAdaptor<DynamicSelect, QUERY, QueryWrapper<ENTITY>, ENTITY> {
 
     @Override
-    public boolean process(QueryWrapper<ENTITY> queryWrapper, Field field, QUERY query, In criteriaAnnotation) {
-
-        final Collection<Object> value = (Collection) this.columnValue(field, query);
+    public boolean process(QueryWrapper<ENTITY> queryWrapper, Field field, QUERY query, DynamicSelect criteriaAnnotation) {
+        final Object value = this.columnValue(field, query);
         if (this.isNullOrEmpty(value)) {
-            // 属性值为 Null OR Empty 跳过
             return true;
         }
 
-        String columnName = criteriaAnnotation.alias();
-        if (StringUtils.isEmpty(columnName)) {
-            columnName = this.columnName(field, criteriaAnnotation.naming());
+        if (!(value instanceof Collection)) {
+            throw new RuntimeException("Annotation @DynamicSelect can only modify properties of list type");
         }
-        assert columnName != null;
-        queryWrapper.in(ObjectUtils.isNotEmpty(value), columnName, value);
+
+        Collection<Object> fields = (Collection<Object>) value;
+        if (ObjectUtils.isEmpty(fields)) {
+            return true;
+        }
+
+        String[] fieldx = fields.stream().map(String::valueOf).toArray(String[]::new);
+        queryWrapper.select(fieldx);
 
         return true;
     }
 }
+
